@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Device Status Dashboard</title>
+  <link href="css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background-color: #f8f9fa; }
+    .device-tile { border-radius:10px; padding:12px; margin-bottom:10px; color:#fff; font-weight:500; transition: transform 0.2s ease-in-out; }
+    .device-tile:hover { transform: scale(1.02); }
+    .up { background-color: #5cd65c; }      /* lighter green */
+    .down { background-color: #ff6666; }    /* lighter red */
+    .hidden { display: none !important; }
+    mark { background: yellow; padding: 0; }
+  </style>
+</head>
+<body>
+  <div class="container py-4">
+    <!-- Note -->
+    <div class="alert alert-info p-2 mb-3" style="font-size:0.9rem; max-width:fit-content;">
+      📌 If you want to add your device, please raise a ticket on 
+      <a href="https://issues.cse.iitk.ac.in" target="_blank" class="alert-link">issues.cse.iitk.ac.in</a>
+    </div>
+
+    <h2 class="text-center mb-3">🌐 Device Status Dashboard</h2>
+    <p id="global-summary" class="text-center fw-bold fs-5">--</p>
+    <p id="last-updated" class="text-center text-muted fw-semibold">Last updated: --</p>
+
+    <!-- Search -->
+    <div class="row justify-content-center mb-4 position-relative">
+      <div id="up-total-label" class="fw-bold" style="position:absolute; left:0; top:50%; transform:translateY(-50%);">
+        Up / Total
+      </div>
+      <div class="col-md-6 offset-md-2">
+        <input type="text" id="searchBox" class="form-control" placeholder="🔍 Search by any field">
+      </div>
+    </div>
+
+    <!-- Accordion -->
+    <div class="accordion" id="deviceAccordion">
+
+      <!-- Department Servers -->
+      <div class="accordion-item">
+        <h2 class="accordion-header" id="headingDept">
+          <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDept" aria-expanded="true" aria-controls="collapseDept">
+            Department Servers <span id="dept-summary" class="ms-2 badge bg-secondary">--</span>
+          </button>
+        </h2>
+        <div id="collapseDept" class="accordion-collapse collapse show" aria-labelledby="headingDept" data-bs-parent="#deviceAccordion">
+          <div class="accordion-body" id="department-servers"></div>
+        </div>
+      </div>
+
+      <!-- Project Servers -->
+      <div class="accordion-item">
+        <h2 class="accordion-header" id="headingProj">
+          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseProj" aria-expanded="false" aria-controls="collapseProj">
+            Project Servers <span id="proj-summary" class="ms-2 badge bg-secondary">--</span>
+          </button>
+        </h2>
+        <div id="collapseProj" class="accordion-collapse collapse" aria-labelledby="headingProj" data-bs-parent="#deviceAccordion">
+          <div class="accordion-body" id="project-servers"></div>
+        </div>
+      </div>
+
+      <!-- Printers -->
+      <div class="accordion-item">
+        <h2 class="accordion-header" id="headingPrinters">
+          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapsePrinters" aria-expanded="false" aria-controls="collapsePrinters">
+            Printers <span id="printers-summary" class="ms-2 badge bg-secondary">--</span>
+          </button>
+        </h2>
+        <div id="collapsePrinters" class="accordion-collapse collapse" aria-labelledby="headingPrinters" data-bs-parent="#deviceAccordion">
+          <div class="accordion-body" id="printers"></div>
+        </div>
+      </div>
+
+      <!-- Cameras -->
+      <div class="accordion-item">
+        <h2 class="accordion-header" id="headingCameras">
+          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseCameras" aria-expanded="false" aria-controls="collapseCameras">
+            Cameras <span id="cameras-summary" class="ms-2 badge bg-secondary">--</span>
+          </button>
+        </h2>
+        <div id="collapseCameras" class="accordion-collapse collapse" aria-labelledby="headingCameras" data-bs-parent="#deviceAccordion">
+          <div class="accordion-body" id="cameras"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="js/bootstrap.bundle.min.js"></script>
+  <script>
+    let latestData = null;
+
+    async function updateStatus() {
+      try {
+        const res = await fetch("status.json?_=" + Date.now());
+        const data = await res.json();
+        latestData = data;
+
+        const allServers = [...data.servers.department, ...data.servers.projects];
+        const allPrinters = data.printers;
+        const allCameras = data.cameras;
+        const totalDevices = allServers.length + allPrinters.length + allCameras.length;
+        const onlineCount = allServers.filter(s=>s.status).length + allPrinters.filter(p=>p.status).length + allCameras.filter(c=>c.status).length;
+
+        document.getElementById("global-summary").textContent = `${onlineCount}/${totalDevices} devices online`;
+        document.getElementById("last-updated").textContent = "Last updated: " + data.last_updated;
+
+        renderServers(data.servers.department, "department-servers", "dept-summary");
+        renderServers(data.servers.projects, "project-servers", "proj-summary");
+        renderDevices(data.printers, "printers", "printers-summary");
+        renderDevices(data.cameras, "cameras", "cameras-summary");
+
+        applySearch(document.getElementById("searchBox").value);
+      } catch(e){ console.error("Failed to load status.json", e); }
+    }
+
+    function renderServers(list, containerId, summaryId){
+      const container = document.getElementById(containerId);
+      container.innerHTML = "";
+      const sorted = list.sort((a,b)=>a.status===b.status?0:a.status?1:-1);
+
+      sorted.forEach(srv => {
+        const tile = document.createElement("div");
+        tile.className = "device-tile "+(srv.status?"up":"down");
+        tile.setAttribute("data-ip", srv.ip.toLowerCase());
+        tile.setAttribute("data-host", srv.hostname.toLowerCase());
+        tile.setAttribute("data-owner", srv.owner.toLowerCase());
+        tile.setAttribute("data-room", srv.room.toLowerCase());
+        tile.setAttribute("data-rack", srv.rack.toLowerCase());
+        tile.innerHTML = `
+          <div class="row">
+            <div class="col-2 ip-field"><b>IP:</b> ${srv.ip}</div>
+            <div class="col-2 host-field"><b>Host:</b> ${srv.hostname}</div>
+            <div class="col-2 owner-field"><b>Owner:</b> ${srv.owner}</div>
+            <div class="col-3 room-field"><b>Room:</b> ${srv.room}</div>
+            <div class="col-3 rack-field"><b>Rack:</b> ${srv.rack}</div>
+          </div>
+        `;
+        container.appendChild(tile);
+      });
+
+      const upCount = list.filter(s=>s.status).length;
+      const badge = document.getElementById(summaryId);
+      badge.textContent = `${upCount}/${list.length}`;
+      badge.className = "ms-2 badge "+(upCount===list.length?"bg-success":"bg-danger");
+    }
+
+    function renderDevices(list, containerId, summaryId){
+      const container = document.getElementById(containerId);
+      container.innerHTML = "";
+      const sorted = list.sort((a,b)=>a.status===b.status?0:a.status?1:-1);
+
+      sorted.forEach(dev => {
+        const tile = document.createElement("div");
+        tile.className = "device-tile "+(dev.status?"up":"down");
+        tile.setAttribute("data-ip", dev.ip.toLowerCase());
+        tile.setAttribute("data-host", (dev.hostname||"").toLowerCase());
+        tile.setAttribute("data-location", (dev.location||"-").toLowerCase());
+
+        if(dev.hostname){ 
+          tile.innerHTML = `
+            <div class="row">
+              <div class="col-3 ip-field"><b>IP:</b> ${dev.ip}</div>
+              <div class="col-4 host-field"><b>Host:</b> ${dev.hostname}</div>
+              <div class="col-5 location-field"><b>Location:</b> ${dev.location||"-"}</div>
+            </div>
+          `;
+        } else { 
+          tile.innerHTML = `
+            <div class="row">
+              <div class="col-5 ip-field"><b>IP:</b> ${dev.ip}</div>
+              <div class="col-7 location-field"><b>Location:</b> ${dev.location||"-"}</div>
+            </div>
+          `;
+        }
+        container.appendChild(tile);
+      });
+
+      const upCount = list.filter(s=>s.status).length;
+      const badge = document.getElementById(summaryId);
+      badge.textContent = `${upCount}/${list.length}`;
+      badge.className = "ms-2 badge "+(upCount===list.length?"bg-success":"bg-danger");
+    }
+
+    function highlightText(text, query) {
+      if(!query) return text;
+      const regex = new RegExp(`(${query})`, "gi");
+      return text.replace(regex, "<mark>$1</mark>");
+    }
+
+    function applySearch(query){
+      const searchQuery = query.toLowerCase().trim();
+
+      ["department-servers","project-servers","printers","cameras"].forEach(containerId => {
+        const container = document.getElementById(containerId);
+        const tiles = container.querySelectorAll(".device-tile");
+
+        let anyMatch = false;
+
+        tiles.forEach(tile => {
+          const fields = Array.from(tile.querySelectorAll("[class$='-field']"));
+          let match = false;
+
+          fields.forEach(field => {
+            const text = field.textContent.toLowerCase();
+            if(text.includes(searchQuery)) match = true;
+          });
+
+          if(match){
+            anyMatch = true;
+            tile.classList.remove("hidden");
+            fields.forEach(field => {
+              field.innerHTML = highlightText(field.textContent, query);
+            });
+          } else {
+            tile.classList.add("hidden");
+            if(!searchQuery){
+              fields.forEach(field => {
+                field.innerHTML = field.textContent;
+              });
+              tile.classList.remove("hidden");
+            }
+          }
+        });
+
+        const badgeId = containerId === "department-servers" ? "dept-summary" :
+                        containerId === "project-servers" ? "proj-summary" :
+                        containerId === "printers" ? "printers-summary" : "cameras-summary";
+        const badge = document.getElementById(badgeId);
+
+        const totalCount = tiles.length;
+        const upCount = Array.from(tiles).filter(t=>t.classList.contains("up")).length;
+        badge.textContent = `${upCount}/${totalCount}`;
+
+        if(searchQuery && anyMatch){
+          badge.className = "ms-2 badge bg-warning";
+        } else {
+          badge.className = "ms-2 badge "+(upCount===totalCount?"bg-success":"bg-danger");
+        }
+      });
+    }
+
+    document.getElementById("searchBox").addEventListener("input", function(){
+      applySearch(this.value);
+    });
+
+    updateStatus();
+    setInterval(updateStatus,10000);
+  </script>
+</body>
+</html>
+
