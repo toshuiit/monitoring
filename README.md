@@ -28,7 +28,7 @@ Copy code
 - Shows Up/Down status for each device.
 - Live updating every 10 seconds using `status.json`.
 - Search functionality across all categories (IP, hostname, owner, room, location).
-- Highlights matching search results in yellow.
+- Highlights matching search results in **yellow**.
 - Badges show **Up Count / Total Count** for each category.
 - Fully local frontend using Bootstrap (CSS & JS).
 
@@ -38,24 +38,28 @@ Copy code
 
 - Python 3.x
 - Web browser to open `server.html`
-- Optional for local deployment: Flask or other Python web server if you want to serve HTML dynamically.
+
+Optional for local deployment:
+
+- Flask or other Python web server if you want to serve HTML dynamically.
 
 ---
 
 ## Setup & Usage
 
-1. **Clone the repository**
+1. Clone the repository:
+
 ```bash
 git clone https://github.com/YourGitHubUsername/monitoring.git
 cd monitoring
-Run the Python script to generate status.json
+Run the Python script to generate status.json:
 
 bash
 Copy code
 python3 server.py
 status.json will be generated in the same folder every few minutes. The dashboard reads it automatically.
 
-Open the dashboard
+Open the dashboard:
 
 Open server.html in a browser to see the status of devices.
 
