@@ -49,7 +49,7 @@ Optional for local deployment:
 1. **Clone the repository**
 
 ```bash
-git clone https://github.com/YourGitHubUsername/monitoring.git
+git clone https://github.com/toshuiit/monitoring.git
 cd monitoring
 ```
 
